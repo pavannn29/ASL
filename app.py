@@ -14,11 +14,11 @@ mp_drawing_styles = mp.solutions.drawing_styles
 mp_holistic = mp.solutions.holistic
 
 # URL for the Parquet file
-PARQUET_URL = 'https://raw.githubusercontent.com/username/repo-name/main/captured.parquet'
+PARQUET_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/data/captured.parquet'
 # URL for train.csv
-TRAIN_CSV_URL = 'https://raw.githubusercontent.com/username/repo-name/main/train.csv'
+TRAIN_CSV_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/data/train.csv'
 # URL for the TFLite model
-TFLITE_MODEL_URL = 'https://raw.githubusercontent.com/username/repo-name/main/asl_model.tflite'
+TFLITE_MODEL_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/models/asl_model.tflite'
 
 def create_frame_landmark_df(results, frame, xyz):
     """
