@@ -5,20 +5,24 @@ import time
 import tensorflow.lite as tflite
 import numpy as np
 import matplotlib.pyplot as plt
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,render_template,session
+import secrets
 
-app = Flask(__name__)
+
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_holistic = mp.solutions.holistic
 
 # URL for the Parquet file
-PARQUET_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/data/captured.parquet'
+#PARQUET_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/data/captured.parquet'
+PARQUET_URL = '/Users/pavan/MLProjects/ASL/deployment/data/239181.parquet'
 # URL for train.csv
-TRAIN_CSV_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/data/train.csv'
+#TRAIN_CSV_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/data/train.csv'
+TRAIN_CSV_URL = '/Users/pavan/MLProjects/ASL/deployment/data/train.csv'
 # URL for the TFLite model
-TFLITE_MODEL_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/models/asl_model.tflite'
+#TFLITE_MODEL_URL = 'https://raw.githubusercontent.com/pavannn29/ASL/main/models/asl_model.tflite'
+TFLITE_MODEL_URL = '/Users/pavan/MLProjects/ASL/deployment/models/asl_model.tflite'
 
 def create_frame_landmark_df(results, frame, xyz):
     """
@@ -99,7 +103,7 @@ def do_capture_loop(xyz, duration):
                 landmark_drawing_spec=mp_drawing_styles
                 .get_default_pose_landmarks_style())
 
-            cv2.imshow('MediaPipe Holistic', cv2.flip(image, 1))
+            #cv2.imshow('MediaPipe Holistic', cv2.flip(image, 1))
 
             elapsed_time = time.time() - start_time
             if elapsed_time >= duration:
@@ -129,6 +133,25 @@ def get_prediction(prediction_fn, pq_url):
     pred_conf = prediction['outputs'][pred]
     return sign, pred_conf
 
+app = Flask(__name__)
+app.secret_key = secrets.token_hex(32)
+# Load the TFLite model
+interpreter = tflite.Interpreter(TFLITE_MODEL_URL)
+found_signatures = list(interpreter.get_signature_list().keys())
+prediction_fn = interpreter.get_signature_runner("serving_default")
+
+# Load the training data and create dictionaries for sign encoding/decoding
+train = pd.read_csv(TRAIN_CSV_URL)
+train['sign_ord'] = train['sign'].astype('category').cat.codes
+SIGN2ORD = train[['sign', 'sign_ord']].set_index('sign').squeeze().to_dict()
+ORD2SIGN = train[['sign_ord', 'sign']].set_index('sign_ord').squeeze().to_dict()
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')  # Make sure the HTML file is in the same directory as this Python script
+
+# this block works but saves files locally, below i have tried to save files in session storage
 @app.route('/capture', methods=['POST'])
 def capture_signs():
     duration = int(request.form.get('duration', 5))
@@ -137,18 +160,29 @@ def capture_signs():
     captured_file = 'captured.parquet'
     pd.concat(landmarks).reset_index(drop=True).to_parquet(captured_file)
     sign, confidence = get_prediction(prediction_fn, captured_file)
-    return jsonify({'predicted_sign': sign, 'confidence': confidence})
+    # Convert the confidence from float32 to Python float
+    confidence = confidence.item()
+
+    return jsonify({'predicted_sign': sign, 'confidence': f'{confidence:.4f}'})
+#doesnt work as the session storage is not large enough to store the captured landmarks
+# @app.route('/capture', methods=['POST'])
+# def capture_signs():
+#     duration = int(request.form.get('duration', 5))
+#     xyz = pd.read_parquet(PARQUET_URL)
+#     landmarks = do_capture_loop(xyz, duration=duration)
+    
+#     # Store the captured landmarks data in the session
+#     session['captured_landmarks'] = pd.concat(landmarks).reset_index(drop=True).to_dict(orient='list')
+    
+#     sign, confidence = get_prediction(prediction_fn, session['captured_landmarks'])
+    
+#     # Convert the confidence from float32 to Python float
+#     confidence = confidence.item()
+    
+#     # Clear the captured_landmarks data from the session after printing the prediction
+#     session.pop('captured_landmarks', None)
+    
+#     return jsonify({'predicted_sign': sign, 'confidence': f'{confidence:.4f}'})
 
 if __name__ == "__main__":
-    # Load the TFLite model
-    interpreter = tflite.Interpreter(TFLITE_MODEL_URL)
-    found_signatures = list(interpreter.get_signature_list().keys())
-    prediction_fn = interpreter.get_signature_runner("serving_default")
-
-    # Load the training data and create dictionaries for sign encoding/decoding
-    train = pd.read_csv(TRAIN_CSV_URL)
-    train['sign_ord'] = train['sign'].astype('category').cat.codes
-    SIGN2ORD = train[['sign', 'sign_ord']].set_index('sign').squeeze().to_dict()
-    ORD2SIGN = train[['sign_ord', 'sign']].set_index('sign_ord').squeeze().to_dict()
-
     app.run(debug=True)
