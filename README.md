@@ -12,8 +12,9 @@ To run this app locally, you'll need to install the necessary packages and set u
    cd ASL
    
 2.Install the required Python packages:
-    ```bash
+   ```bash
    pip install -r requirements.txt
+   ```
 
 ## Usage
 
@@ -21,6 +22,7 @@ Run the Streamlit app:
   ```bash
    streamlit run app.py
   ```
+  
 Set the duration (in seconds) for capturing the ASL sign.
 
 Click the "Predict Sign" button to capture the sign and receive a prediction.
